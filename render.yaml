@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: edgeline-picks-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: USE_LIVE_DATA
+        value: "true"
+      - key: NODE_VERSION
+        value: "20.11.0"
