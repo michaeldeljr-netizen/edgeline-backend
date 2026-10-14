@@ -10,6 +10,8 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+const { scan: scanArbs } = require("./arb/scanner");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -156,6 +158,29 @@ app.get("/api/picks", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to load picks" });
+  }
+});
+
+// Pre-market arbitrage scanner across NJ sportsbooks. All query params optional:
+//   sports=basketball_nba,icehockey_nhl  markets=h2h,totals  books=draftkings,fanduel
+//   minProfit=0.5 (percent)  bankroll=500  roundTo=5
+app.get("/api/arbs", async (req, res) => {
+  const list = (v) => (v ? String(v).split(",").map((s) => s.trim()).filter(Boolean) : undefined);
+  const num = (v) => (v === undefined || v === "" || isNaN(Number(v)) ? undefined : Number(v));
+  try {
+    const result = await scanArbs({
+      sports: list(req.query.sports),
+      markets: list(req.query.markets),
+      books: list(req.query.books),
+      minProfitPct: num(req.query.minProfit),
+      maxProfitPct: num(req.query.maxProfit),
+      bankroll: num(req.query.bankroll),
+      roundTo: num(req.query.roundTo),
+    });
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: "Arb scan failed", detail: err.message });
   }
 });
 
