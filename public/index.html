@@ -480,7 +480,9 @@ td.book { font-weight: 600; }
       .catch(function (err) {
         if (err.message === "no-backend" || err instanceof TypeError) {
           banner(SNAP
-            ? "Real NJ odds as of " + new Date(SNAP.scannedAt).toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }) + " ET. Prices move fast, so ask Claude to scan again for fresh odds."
+            ? "Real NJ odds as of " + new Date(SNAP.scannedAt).toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }) + " ET" +
+              (SNAP.markets && SNAP.markets.length === 1 && SNAP.markets[0] === "h2h" ? " (moneylines only)" : "") +
+              ". " + (SNAP.note || "Prices move fast, so ask Claude to scan again for fresh odds.")
             : "Preview mode: these are sample games, not real odds. Open your deployed Edgeline backend to scan live NJ lines.");
           runDemo();
         } else {
