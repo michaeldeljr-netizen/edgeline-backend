@@ -101,6 +101,7 @@ async function scan(options = {}) {
       errors: [],
       quota: null,
       arbs: findArbs(events, engineOpts),
+      nearMisses: nearMisses(events, engineOpts),
     };
   }
 
@@ -125,7 +126,13 @@ async function scan(options = {}) {
     errors,
     quota: lastQuota,
     arbs: findArbs(events, engineOpts),
+    nearMisses: nearMisses(events, engineOpts),
   };
+}
+
+// The closest non-arb lines (within 1.5%), so an empty scan still shows the market.
+function nearMisses(events, engineOpts) {
+  return findArbs(events, { ...engineOpts, minProfitPct: -1.5, maxProfitPct: engineOpts.minProfitPct }).slice(0, 5);
 }
 
 module.exports = { scan, DEFAULT_SPORTS, DEFAULT_MARKETS };

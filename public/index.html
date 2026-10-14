@@ -135,6 +135,8 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); }
 td.book { font-weight: 600; }
 .foot { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; justify-content: space-between; font-size: .85rem; }
 .foot .profit { color: var(--good); font-weight: 600; font-family: var(--font-mono); }
+.ticket.near .edge { background: var(--bg); color: var(--muted); }
+.near-head { font: 600 .72rem var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
 .empty {
   background: var(--panel); border: 1px dashed var(--line); border-radius: 10px; padding: 28px; text-align: center; color: var(--muted);
 }
@@ -275,6 +277,7 @@ td.book { font-weight: 600; }
     var now = Date.now(), out = [];
     events.forEach(function (ev) {
       if (Date.parse(ev.commence_time) <= now) return;
+      if (o.sports && o.sports.indexOf(ev.sport_key) < 0) return;
       var mk = {}, names = {};
       ev.bookmakers.forEach(function (b) {
         if (o.books.indexOf(b.key) < 0) return;
@@ -300,7 +303,7 @@ td.book { font-weight: 600; }
           if (legs.length < 2 || legs.length !== need) return;
           var sum = legs.reduce(function (s, l) { return s + 1 / l.price; }, 0);
           var pct = (1 / sum - 1) * 100;
-          if (pct <= o.minProfit || pct > 15) return;
+          if (pct <= (o.floor != null ? o.floor : o.minProfit) || pct > (o.ceil != null ? o.ceil : 15)) return;
           var st = stakesFor(legs.map(function (l) { return l.price; }), o.bankroll, o.roundTo);
           out.push({
             eventId: ev.id, sport: ev.sport_key, sportTitle: ev.sport_title, commenceTime: ev.commence_time,
@@ -389,7 +392,7 @@ td.book { font-weight: 600; }
       '<div><div class="big">' + money(totalProfit) + '</div><div class="cap">locked profit if you hit all, at ' + money(state.bankroll) + ' each</div></div>';
 
     var st = [
-      "Source <b>" + (result.source === "the-odds-api" ? "Live odds" : "Sample games") + "</b>",
+      "Source <b>" + (result.source === "the-odds-api" ? "Live odds" : result.source === "snapshot" ? "Live snapshot" : "Sample games") + "</b>",
       "Games scanned <b>" + result.eventsScanned + "</b>",
       "Last scan <b>" + new Date(result.scannedAt).toLocaleTimeString("en-US", { timeZone: "America/New_York" }) + " ET</b>"
     ];
@@ -397,25 +400,34 @@ td.book { font-weight: 600; }
     $("status").innerHTML = st.map(function (s) { return "<span>" + s + "</span>"; }).join("");
 
     var list = $("list");
+    var near = result.nearMisses || [];
     if (!arbs.length) {
-      list.innerHTML = '<div class="empty">No pre-market arbs right now across the selected books. Arbs open and close in minutes, so turn on auto-refresh or check back.</div>';
+      list.innerHTML = '<div class="empty">No pre-market arbs right now across the selected books. Arbs open and close in minutes, so check back or turn on auto-refresh.</div>' +
+        (near.length ? '<div class="near-head">Closest lines right now (not arbs: these would lose a little)</div>' + near.map(function (a) { return ticket(a, -1); }).join("") : "");
       return;
     }
-    list.innerHTML = arbs.map(function (a, idx) {
+    list.innerHTML = arbs.map(function (a, idx) { return ticket(a, idx); }).join("");
+    wireCopy(arbs);
+  }
+
+  function ticket(a, idx) {
+    var isNear = idx < 0;
       var rows = a.legs.map(function (l, i) {
         return "<tr><td>" + esc(legLabel(a, l)) + '</td><td class="book">' + esc(l.bookTitle) + '</td><td class="num">' + esc(l.american) +
           '</td><td class="num">' + money(a.stakes.rounded[i]) + '</td><td class="num">' + money(a.stakes.rounded[i] * l.price) + "</td></tr>";
       }).join("");
-      return '<article class="ticket">' +
-        '<div class="edge"><div class="pct">' + a.profitPct.toFixed(2) + '%</div><div class="lbl">guaranteed</div></div>' +
+      return '<article class="ticket' + (isNear ? " near" : "") + '">' +
+        '<div class="edge"><div class="pct">' + a.profitPct.toFixed(2) + '%</div><div class="lbl">' + (isNear ? "short of arb" : "guaranteed") + '</div></div>' +
         '<div class="body">' +
           '<div class="meta"><span class="matchup">' + esc(a.matchup) + '</span><span class="tag">' + esc(a.sportTitle) + '</span><span class="tag">' + MARKETS[a.market] + '</span><span class="when">' + etTime(a.commenceTime) + "</span></div>" +
           '<div class="legs"><table><thead><tr><th>Bet</th><th>Book</th><th class="num">Odds</th><th class="num">Stake</th><th class="num">Pays</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
-          '<div class="foot"><span>Stake ' + money(a.stakes.roundedTotal) + ' → profit at least <span class="profit">' + money(a.stakes.roundedWorstProfit) + "</span></span>" +
-          '<button class="ghost" data-copy="' + idx + '">Copy bet slip</button></div>' +
+          (isNear ? "" : '<div class="foot"><span>Stake ' + money(a.stakes.roundedTotal) + ' → profit at least <span class="profit">' + money(a.stakes.roundedWorstProfit) + "</span></span>" +
+          '<button class="ghost" data-copy="' + idx + '">Copy bet slip</button></div>') +
         "</div></article>";
-    }).join("");
-    list.querySelectorAll("[data-copy]").forEach(function (btn) {
+  }
+
+  function wireCopy(arbs) {
+    $("list").querySelectorAll("[data-copy]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var a = arbs[Number(btn.getAttribute("data-copy"))];
         var text = a.matchup + " — " + MARKETS[a.market] + " (" + a.profitPct.toFixed(2) + "%)\n" + a.legs.map(function (l, i) {
@@ -434,10 +446,14 @@ td.book { font-weight: 600; }
     b.hidden = false; b.className = "banner" + (isErr ? " err" : ""); b.textContent = text;
   }
 
+  var SNAP = window.ARB_SNAPSHOT || null;
   function runDemo() {
     mode = "demo";
-    var arbs = findArbs(demoEvents(), state);
-    render({ source: "demo", eventsScanned: demoEvents().length, scannedAt: new Date().toISOString(), quota: null, arbs: arbs });
+    var events = SNAP ? SNAP.events : demoEvents();
+    var arbs = findArbs(events, state);
+    var near = findArbs(events, Object.assign({}, state, { floor: -1.5, ceil: state.minProfit })).slice(0, 5);
+    render({ source: SNAP ? "snapshot" : "demo", eventsScanned: events.length, scannedAt: SNAP ? SNAP.scannedAt : new Date().toISOString(),
+      quota: SNAP ? SNAP.quota : null, arbs: arbs, nearMisses: near });
   }
 
   function scan() {
@@ -463,7 +479,9 @@ td.book { font-weight: 600; }
       })
       .catch(function (err) {
         if (err.message === "no-backend" || err instanceof TypeError) {
-          banner("Preview mode: these are sample games, not real odds. Open your deployed Edgeline backend to scan live NJ lines.");
+          banner(SNAP
+            ? "Real NJ odds as of " + new Date(SNAP.scannedAt).toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }) + " ET. Prices move fast, so ask Claude to scan again for fresh odds."
+            : "Preview mode: these are sample games, not real odds. Open your deployed Edgeline backend to scan live NJ lines.");
           runDemo();
         } else {
           banner("Scan failed: " + err.message + ". Check the server logs and your Odds API key.", true);
