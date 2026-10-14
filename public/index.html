@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Edgeline Arb Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a trading-desk strip (status + controls) over a stack of bet-slip tickets, one per arb. */
+:root {
+  --bg: #eef1f0;
+  --panel: #ffffff;
+  --ink: #15211d;
+  --muted: #5b6b66;
+  --line: #d3dbd8;
+  --accent: #1d4ed8;
+  --accent-soft: #e3eafc;
+  --good: #0f7a4a;
+  --good-soft: #dcf2e6;
+  --warn: #9a5b00;
+  --warn-soft: #fbefd9;
+  --bad: #b42318;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1513; --panel: #17201d; --ink: #e4ece9; --muted: #93a39e; --line: #2a3632;
+    --accent: #7ea2ff; --accent-soft: #1d2a4a; --good: #4fd394; --good-soft: #143326;
+    --warn: #f0b860; --warn-soft: #3a2c12; --bad: #ff8a80; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1513; --panel: #17201d; --ink: #e4ece9; --muted: #93a39e; --line: #2a3632;
+  --accent: #7ea2ff; --accent-soft: #1d2a4a; --good: #4fd394; --good-soft: #143326;
+  --warn: #f0b860; --warn-soft: #3a2c12; --bad: #ff8a80; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 var(--font-body);
+}
+.wrap {
+  max-width: 1080px; margin: 0 auto;
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 18px;
+}
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+h1 {
+  font: 700 2.4rem/1 var(--font-display); letter-spacing: .01em; margin: 0;
+  text-transform: uppercase; text-wrap: balance;
+}
+h1 small { display: block; font: 500 .8rem/1.4 var(--font-body); letter-spacing: .08em; color: var(--muted); margin-top: 4px; }
+.tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+.tabs button {
+  font: 600 .95rem var(--font-display); letter-spacing: .06em; text-transform: uppercase;
+  border: 0; background: transparent; color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.banner { border-radius: 8px; padding: 10px 14px; font-size: .9rem; background: var(--warn-soft); color: var(--warn); }
+.banner.err { color: var(--bad); }
+
+.status {
+  display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: .82rem; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.status b { color: var(--ink); font-family: var(--font-mono); font-weight: 500; }
+
+.controls {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px; display: grid; gap: 14px;
+}
+.row { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; }
+.field { display: grid; gap: 4px; }
+.label { font: 600 .72rem var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+input[type="number"], select {
+  font: 500 .95rem var(--font-mono); color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; width: 110px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: 500 .82rem var(--font-body); border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+  padding: 4px 10px; border-radius: 999px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.primary {
+  font: 700 1rem var(--font-display); letter-spacing: .08em; text-transform: uppercase;
+  background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 18px; cursor: pointer;
+}
+:root[data-theme="dark"] .primary { color: #0f1513; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .primary { color: #0f1513; } }
+.primary:disabled { opacity: .55; cursor: wait; }
+.ghost {
+  font: 500 .8rem var(--font-body); background: transparent; border: 1px solid var(--line); color: var(--ink);
+  border-radius: 6px; padding: 5px 10px; cursor: pointer;
+}
+
+.summary { display: flex; flex-wrap: wrap; gap: 10px 28px; align-items: baseline; }
+.summary .big { font: 700 2rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.summary .cap { font-size: .8rem; color: var(--muted); }
+
+.list { display: grid; gap: 12px; }
+.ticket {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  display: grid; grid-template-columns: 112px minmax(0, 1fr); overflow: hidden;
+}
+.edge {
+  background: var(--good-soft); color: var(--good); display: grid; place-content: center; text-align: center;
+  padding: 12px 6px; border-right: 1px dashed var(--line);
+}
+.edge .pct { font: 700 2rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.edge .lbl { font: 600 .66rem var(--font-body); letter-spacing: .1em; text-transform: uppercase; margin-top: 4px; }
+.body { padding: 12px 16px; display: grid; gap: 10px; min-width: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.matchup { font: 600 1.25rem/1.2 var(--font-display); letter-spacing: .01em; }
+.tag {
+  font: 600 .68rem var(--font-body); letter-spacing: .08em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px; background: var(--bg); color: var(--muted); border: 1px solid var(--line);
+}
+.when { font-size: .82rem; color: var(--muted); }
+.legs { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font: 600 .68rem var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 4px 8px 4px 0; }
+td { padding: 6px 8px 6px 0; border-top: 1px solid var(--line); white-space: nowrap; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); }
+td.book { font-weight: 600; }
+.foot { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; justify-content: space-between; font-size: .85rem; }
+.foot .profit { color: var(--good); font-weight: 600; font-family: var(--font-mono); }
+.empty {
+  background: var(--panel); border: 1px dashed var(--line); border-radius: 10px; padding: 28px; text-align: center; color: var(--muted);
+}
+
+/* Calculator */
+.calc { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 16px; }
+.calc-legs { display: grid; gap: 10px; }
+.calc-leg { display: grid; grid-template-columns: minmax(0, 1fr) 120px 110px; gap: 10px; align-items: end; }
+.calc-leg input[type="text"] {
+  font: 500 .95rem var(--font-body); color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; width: 100%;
+}
+.calc-leg input[type="number"] { width: 100%; }
+.calc-result { border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 8px; }
+.verdict { font: 700 1.5rem/1.1 var(--font-display); }
+.verdict.yes { color: var(--good); }
+.verdict.no { color: var(--bad); }
+.note { font-size: .8rem; color: var(--muted); max-width: 70ch; }
+
+@media (max-width: 560px) {
+  .ticket { grid-template-columns: 1fr; }
+  .edge { border-right: 0; border-bottom: 1px dashed var(--line); display: flex; gap: 10px; justify-content: flex-start; align-items: baseline; padding: 10px 16px; }
+  .edge .lbl { margin-top: 0; }
+  .calc-leg { grid-template-columns: 1fr 1fr; }
+  .calc-leg .field:first-child { grid-column: 1 / -1; }
+  h1 { font-size: 2rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ticket { animation: rise .25s ease-out both; }
+  @keyframes rise { from { transform: translateY(4px); } to { transform: none; } }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Edgeline Arb Desk<small>Pre-market arbitrage · New Jersey sportsbooks</small></h1>
+    <div class="tabs" role="tablist">
+      <button id="tab-scan" role="tab" aria-selected="true">Scanner</button>
+      <button id="tab-calc" role="tab" aria-selected="false">Calculator</button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <section id="view-scan" style="display:grid;gap:18px">
+    <div class="status" id="status"></div>
+
+    <div class="controls">
+      <div class="field">
+        <span class="label">Sportsbooks</span>
+        <div class="chips" id="books"></div>
+      </div>
+      <div class="field">
+        <span class="label">Sports</span>
+        <div class="chips" id="sports"></div>
+      </div>
+      <div class="field">
+        <span class="label">Markets</span>
+        <div class="chips" id="markets"></div>
+      </div>
+      <div class="row">
+        <label class="field"><span class="label">Bankroll $</span><input id="bankroll" type="number" min="10" step="10" value="500"></label>
+        <label class="field"><span class="label">Min profit %</span><input id="minProfit" type="number" min="0" step="0.1" value="0"></label>
+        <label class="field"><span class="label">Round stakes to</span>
+          <select id="roundTo"><option value="1">$1</option><option value="5">$5</option><option value="10">$10</option></select>
+        </label>
+        <label class="field"><span class="label">Auto-refresh</span>
+          <select id="refresh"><option value="0">Off</option><option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option></select>
+        </label>
+        <button class="primary" id="scanBtn">Scan now</button>
+      </div>
+    </div>
+
+    <div class="summary" id="summary"></div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section id="view-calc" hidden>
+    <div class="calc">
+      <p class="note">Found a gap yourself? Enter each side's American odds (e.g. <code>+145</code>, <code>-130</code>). Add a third leg for a draw.</p>
+      <div class="calc-legs" id="calcLegs"></div>
+      <div class="row">
+        <label class="field"><span class="label">Total stake $</span><input id="calcBankroll" type="number" min="1" value="500"></label>
+        <label class="field"><span class="label">Round to</span>
+          <select id="calcRound"><option value="0.01">Cents</option><option value="1" selected>$1</option><option value="5">$5</option></select>
+        </label>
+        <button class="ghost" id="calcAdd">Add draw leg</button>
+      </div>
+      <div class="calc-result" id="calcResult"></div>
+    </div>
+  </section>
+
+  <p class="note">Prices move fast and feeds lag. Confirm every leg in the book's app before you place it, and place the harder-to-get side first. Books may limit accounts that arb regularly.</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var BOOKS = {
+    draftkings: "DraftKings", fanduel: "FanDuel", betmgm: "BetMGM", williamhill_us: "Caesars",
+    betrivers: "BetRivers", espnbet: "ESPN BET / theScore", fanatics: "Fanatics",
+    hardrockbet: "Hard Rock Bet", betparx: "betPARX"
+  };
+  var SPORTS = {
+    americanfootball_nfl: "NFL", americanfootball_ncaaf: "NCAAF", basketball_nba: "NBA",
+    baseball_mlb: "MLB", icehockey_nhl: "NHL"
+  };
+  var MARKETS = { h2h: "Moneyline", spreads: "Spread", totals: "Total" };
+
+  // ---- persisted settings (per-browser convenience only) ----
+  var state = {
+    books: Object.keys(BOOKS), sports: Object.keys(SPORTS), markets: Object.keys(MARKETS),
+    bankroll: 500, minProfit: 0, roundTo: 1, refresh: 0
+  };
+  try {
+    var saved = JSON.parse(localStorage.getItem("arbdesk") || "null");
+    if (saved) Object.keys(state).forEach(function (k) { if (saved[k] != null) state[k] = saved[k]; });
+  } catch (e) {}
+  function persist() { try { localStorage.setItem("arbdesk", JSON.stringify(state)); } catch (e) {} }
+
+  // ---- arb math (mirrors arb/engine.js, used for demo mode) ----
+  function toAmerican(d) { return d >= 2 ? "+" + Math.round((d - 1) * 100) : String(Math.round(-100 / (d - 1))); }
+  function fromAmerican(a) { a = Number(a); if (!a || (a > -100 && a < 100)) return null; return a > 0 ? 1 + a / 100 : 1 + 100 / -a; }
+  function stakesFor(prices, bankroll, roundTo) {
+    var sum = prices.reduce(function (s, p) { return s + 1 / p; }, 0);
+    var exact = prices.map(function (p) { return bankroll / (p * sum); });
+    var rounded = exact.map(function (s) { return Math.max(roundTo, Math.round(s / roundTo) * roundTo); });
+    var total = rounded.reduce(function (a, b) { return a + b; }, 0);
+    var worst = Math.min.apply(null, rounded.map(function (s, i) { return s * prices[i]; }));
+    return {
+      exact: exact, exactProfit: bankroll / sum - bankroll, rounded: rounded,
+      roundedTotal: total, roundedWorstProfit: worst - total, sum: sum
+    };
+  }
+  function findArbs(events, o) {
+    var now = Date.now(), out = [];
+    events.forEach(function (ev) {
+      if (Date.parse(ev.commence_time) <= now) return;
+      var mk = {}, names = {};
+      ev.bookmakers.forEach(function (b) {
+        if (o.books.indexOf(b.key) < 0) return;
+        b.markets.forEach(function (m) {
+          if (o.markets.indexOf(m.key) < 0) return;
+          names[m.key] = names[m.key] || {};
+          m.outcomes.forEach(function (x) {
+            names[m.key][x.name] = 1;
+            var line = m.key === "spreads" ? String(x.name === ev.home_team ? x.point : -x.point)
+              : m.key === "totals" ? String(x.point) : "ml";
+            var slot = ((mk[m.key] = mk[m.key] || {})[line] = mk[m.key][line] || {});
+            if (!slot[x.name] || x.price > slot[x.name].price) {
+              slot[x.name] = { outcome: x.name, point: x.point == null ? null : x.point, price: x.price,
+                american: toAmerican(x.price), book: b.key, bookTitle: BOOKS[b.key] || b.title };
+            }
+          });
+        });
+      });
+      Object.keys(mk).forEach(function (key) {
+        var need = key === "h2h" ? Object.keys(names[key]).length : 2;
+        Object.keys(mk[key]).forEach(function (line) {
+          var legs = Object.values(mk[key][line]);
+          if (legs.length < 2 || legs.length !== need) return;
+          var sum = legs.reduce(function (s, l) { return s + 1 / l.price; }, 0);
+          var pct = (1 / sum - 1) * 100;
+          if (pct <= o.minProfit || pct > 15) return;
+          var st = stakesFor(legs.map(function (l) { return l.price; }), o.bankroll, o.roundTo);
+          out.push({
+            eventId: ev.id, sport: ev.sport_key, sportTitle: ev.sport_title, commenceTime: ev.commence_time,
+            matchup: ev.away_team + " @ " + ev.home_team, market: key, profitPct: +pct.toFixed(2), legs: legs,
+            stakes: { exact: st.exact, exactProfit: st.exactProfit, rounded: st.rounded,
+              roundedTotal: st.roundedTotal, roundedWorstProfit: st.roundedWorstProfit }
+          });
+        });
+      });
+    });
+    return out.sort(function (a, b) { return b.profitPct - a.profitPct; });
+  }
+
+  // ---- sample games for demo mode (not real odds) ----
+  function demoEvents() {
+    var now = Date.now();
+    function at(h) { return new Date(now + h * 3600e3).toISOString(); }
+    function bk(key, mkts) { return { key: key, title: BOOKS[key], markets: mkts }; }
+    function ml(h, a, hp, ap, dp) {
+      var o = [{ name: h, price: hp }, { name: a, price: ap }];
+      if (dp) o.push({ name: "Draw", price: dp });
+      return { key: "h2h", outcomes: o };
+    }
+    function sp(h, a, pt, hp, ap) { return { key: "spreads", outcomes: [{ name: h, price: hp, point: pt }, { name: a, price: ap, point: -pt }] }; }
+    function tot(pt, op, up) { return { key: "totals", outcomes: [{ name: "Over", price: op, point: pt }, { name: "Under", price: up, point: pt }] }; }
+    var G = "New York Giants", E = "Philadelphia Eagles", K = "New York Knicks", C = "Boston Celtics",
+        D = "New Jersey Devils", R = "New York Rangers", RU = "Rutgers Scarlet Knights", P = "Penn State Nittany Lions";
+    return [
+      { id: "d1", sport_key: "americanfootball_nfl", sport_title: "NFL", commence_time: at(26), home_team: G, away_team: E, bookmakers: [
+        bk("draftkings", [ml(G, E, 3.4, 1.33), sp(G, E, 7.5, 1.91, 1.91), tot(44.5, 1.87, 1.95)]),
+        bk("fanduel", [ml(G, E, 3.25, 1.36), sp(G, E, 7.5, 1.89, 1.93), tot(44.5, 2.12, 1.74)]),
+        bk("betmgm", [ml(G, E, 3.1, 1.43), sp(G, E, 7.5, 1.91, 1.91), tot(44.5, 1.91, 1.91)]) ] },
+      { id: "d2", sport_key: "basketball_nba", sport_title: "NBA", commence_time: at(8), home_team: K, away_team: C, bookmakers: [
+        bk("fanduel", [ml(K, C, 1.67, 2.25), sp(K, C, -4.5, 2.0, 1.83), tot(219.5, 1.91, 1.91)]),
+        bk("hardrockbet", [ml(K, C, 1.62, 2.35), sp(K, C, -4.5, 1.77, 2.06), tot(219.5, 1.93, 1.89)]),
+        bk("betrivers", [ml(K, C, 1.65, 2.3), sp(K, C, -4.5, 1.91, 1.91), tot(220.5, 1.87, 1.95)]) ] },
+      { id: "d3", sport_key: "americanfootball_ncaaf", sport_title: "NCAAF", commence_time: at(50), home_team: RU, away_team: P, bookmakers: [
+        bk("betparx", [ml(RU, P, 4.2, 1.25), sp(RU, P, 10.5, 1.91, 1.91)]),
+        bk("williamhill_us", [ml(RU, P, 3.7, 1.33), sp(RU, P, 10.5, 1.87, 1.95)]),
+        bk("espnbet", [ml(RU, P, 3.9, 1.28), sp(RU, P, 10.5, 1.93, 1.89)]) ] },
+      { id: "d4", sport_key: "icehockey_nhl", sport_title: "NHL", commence_time: at(6), home_team: D, away_team: R, bookmakers: [
+        bk("williamhill_us", [ml(D, R, 1.83, 2.0), tot(6, 1.95, 1.87)]),
+        bk("fanatics", [ml(D, R, 1.8, 2.05), tot(6, 1.91, 1.91)]) ] }
+    ];
+  }
+
+  // ---- UI ----
+  var $ = function (id) { return document.getElementById(id); };
+  var mode = "unknown"; // "live" | "demo"
+  var timer = null;
+
+  function chips(containerId, all, key) {
+    var el = $(containerId);
+    el.innerHTML = "";
+    Object.keys(all).forEach(function (k) {
+      var b = document.createElement("button");
+      b.className = "chip"; b.type = "button"; b.textContent = all[k];
+      b.setAttribute("aria-pressed", state[key].indexOf(k) > -1 ? "true" : "false");
+      b.addEventListener("click", function () {
+        var i = state[key].indexOf(k);
+        if (i > -1) { if (state[key].length > 1) state[key].splice(i, 1); } else state[key].push(k);
+        persist(); chips(containerId, all, key); scan();
+      });
+      el.appendChild(b);
+    });
+  }
+
+  function money(n) { return "$" + (Math.round(n * 100) / 100).toFixed(2); }
+  function etTime(iso) {
+    return new Date(iso).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
+  }
+  function legLabel(a, l) {
+    if (a.market === "spreads") return l.outcome + " " + (l.point > 0 ? "+" : "") + l.point;
+    if (a.market === "totals") return l.outcome + " " + l.point;
+    return l.outcome;
+  }
+  function esc(s) { var d = document.createElement("div"); d.textContent = String(s); return d.innerHTML; }
+
+  function render(result) {
+    var arbs = result.arbs;
+    var best = arbs.length ? arbs[0].profitPct : 0;
+    var totalProfit = arbs.reduce(function (s, a) { return s + a.stakes.roundedWorstProfit; }, 0);
+    $("summary").innerHTML =
+      '<div><div class="big">' + arbs.length + '</div><div class="cap">open arbs</div></div>' +
+      '<div><div class="big">' + best.toFixed(2) + '%</div><div class="cap">best edge</div></div>' +
+      '<div><div class="big">' + money(totalProfit) + '</div><div class="cap">locked profit if you hit all, at ' + money(state.bankroll) + ' each</div></div>';
+
+    var st = [
+      "Source <b>" + (result.source === "the-odds-api" ? "Live odds" : "Sample games") + "</b>",
+      "Games scanned <b>" + result.eventsScanned + "</b>",
+      "Last scan <b>" + new Date(result.scannedAt).toLocaleTimeString("en-US", { timeZone: "America/New_York" }) + " ET</b>"
+    ];
+    if (result.quota) st.push("API credits left <b>" + result.quota.remaining + "</b>");
+    $("status").innerHTML = st.map(function (s) { return "<span>" + s + "</span>"; }).join("");
+
+    var list = $("list");
+    if (!arbs.length) {
+      list.innerHTML = '<div class="empty">No pre-market arbs right now across the selected books. Arbs open and close in minutes, so turn on auto-refresh or check back.</div>';
+      return;
+    }
+    list.innerHTML = arbs.map(function (a, idx) {
+      var rows = a.legs.map(function (l, i) {
+        return "<tr><td>" + esc(legLabel(a, l)) + '</td><td class="book">' + esc(l.bookTitle) + '</td><td class="num">' + esc(l.american) +
+          '</td><td class="num">' + money(a.stakes.rounded[i]) + '</td><td class="num">' + money(a.stakes.rounded[i] * l.price) + "</td></tr>";
+      }).join("");
+      return '<article class="ticket">' +
+        '<div class="edge"><div class="pct">' + a.profitPct.toFixed(2) + '%</div><div class="lbl">guaranteed</div></div>' +
+        '<div class="body">' +
+          '<div class="meta"><span class="matchup">' + esc(a.matchup) + '</span><span class="tag">' + esc(a.sportTitle) + '</span><span class="tag">' + MARKETS[a.market] + '</span><span class="when">' + etTime(a.commenceTime) + "</span></div>" +
+          '<div class="legs"><table><thead><tr><th>Bet</th><th>Book</th><th class="num">Odds</th><th class="num">Stake</th><th class="num">Pays</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+          '<div class="foot"><span>Stake ' + money(a.stakes.roundedTotal) + ' → profit at least <span class="profit">' + money(a.stakes.roundedWorstProfit) + "</span></span>" +
+          '<button class="ghost" data-copy="' + idx + '">Copy bet slip</button></div>' +
+        "</div></article>";
+    }).join("");
+    list.querySelectorAll("[data-copy]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var a = arbs[Number(btn.getAttribute("data-copy"))];
+        var text = a.matchup + " — " + MARKETS[a.market] + " (" + a.profitPct.toFixed(2) + "%)\n" + a.legs.map(function (l, i) {
+          return legLabel(a, l) + " " + l.american + " @ " + l.bookTitle + " — stake " + money(a.stakes.rounded[i]);
+        }).join("\n");
+        var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy bet slip"; }, 1500); };
+        var blocked = function () { btn.textContent = "Copy blocked by browser"; };
+        try { navigator.clipboard.writeText(text).then(done, blocked); } catch (e) { blocked(); }
+      });
+    });
+  }
+
+  function banner(text, isErr) {
+    var b = $("banner");
+    if (!text) { b.hidden = true; return; }
+    b.hidden = false; b.className = "banner" + (isErr ? " err" : ""); b.textContent = text;
+  }
+
+  function runDemo() {
+    mode = "demo";
+    var arbs = findArbs(demoEvents(), state);
+    render({ source: "demo", eventsScanned: demoEvents().length, scannedAt: new Date().toISOString(), quota: null, arbs: arbs });
+  }
+
+  function scan() {
+    var btn = $("scanBtn");
+    if (mode === "demo") { runDemo(); return; }
+    btn.disabled = true; btn.textContent = "Scanning…";
+    var q = new URLSearchParams({
+      books: state.books.join(","), sports: state.sports.join(","), markets: state.markets.join(","),
+      bankroll: state.bankroll, minProfit: state.minProfit, roundTo: state.roundTo
+    });
+    fetch("/api/arbs?" + q.toString())
+      .then(function (r) {
+        var ct = r.headers.get("content-type") || "";
+        if (ct.indexOf("json") < 0) throw new Error("no-backend");
+        return r.json().then(function (j) { if (!r.ok) throw new Error(j.detail || j.error || "Scan failed"); return j; });
+      })
+      .then(function (res) {
+        mode = "live";
+        if (res.source === "mock") banner("No odds API key is set on the server, so these are sample games. Add ODDS_API_KEY in Render → Environment to scan real NJ odds.");
+        else if (res.errors && res.errors.length) banner("Some sports failed to load: " + res.errors.map(function (e) { return e.sport; }).join(", "), true);
+        else banner("");
+        render(res);
+      })
+      .catch(function (err) {
+        if (err.message === "no-backend" || err instanceof TypeError) {
+          banner("Preview mode: these are sample games, not real odds. Open your deployed Edgeline backend to scan live NJ lines.");
+          runDemo();
+        } else {
+          banner("Scan failed: " + err.message + ". Check the server logs and your Odds API key.", true);
+        }
+      })
+      .then(function () { btn.disabled = false; btn.textContent = "Scan now"; });
+  }
+
+  function setRefresh() {
+    if (timer) clearInterval(timer);
+    timer = state.refresh > 0 ? setInterval(scan, state.refresh * 1000) : null;
+  }
+
+  // Controls
+  chips("books", BOOKS, "books");
+  chips("sports", SPORTS, "sports");
+  chips("markets", MARKETS, "markets");
+  [["bankroll", Number], ["minProfit", Number], ["roundTo", Number], ["refresh", Number]].forEach(function (p) {
+    var el = $(p[0]); el.value = state[p[0]];
+    el.addEventListener("change", function () {
+      state[p[0]] = p[1](el.value) || 0;
+      if (p[0] === "bankroll" && state.bankroll < 10) state.bankroll = 10;
+      persist();
+      if (p[0] === "refresh") setRefresh(); else scan();
+    });
+  });
+  $("scanBtn").addEventListener("click", scan);
+
+  // Tabs
+  function showTab(which) {
+    $("tab-scan").setAttribute("aria-selected", which === "scan");
+    $("tab-calc").setAttribute("aria-selected", which === "calc");
+    $("view-scan").hidden = which !== "scan";
+    $("view-calc").hidden = which !== "calc";
+  }
+  $("tab-scan").addEventListener("click", function () { showTab("scan"); });
+  $("tab-calc").addEventListener("click", function () { showTab("calc"); });
+
+  // Calculator
+  var calcLegs = [{ name: "Side A", odds: "+145", book: "DraftKings" }, { name: "Side B", odds: "-130", book: "FanDuel" }];
+  function drawCalc() {
+    $("calcLegs").innerHTML = calcLegs.map(function (l, i) {
+      return '<div class="calc-leg">' +
+        '<label class="field"><span class="label">Bet ' + (i + 1) + '</span><input id="cl-name-' + i + '" type="text" value="' + esc(l.name) + '"></label>' +
+        '<label class="field"><span class="label">Book</span><input id="cl-book-' + i + '" type="text" value="' + esc(l.book) + '"></label>' +
+        '<label class="field"><span class="label">Odds</span><input id="cl-odds-' + i + '" type="number" step="1" value="' + esc(l.odds) + '"></label>' +
+        "</div>";
+    }).join("");
+    calcLegs.forEach(function (l, i) {
+      ["name", "book", "odds"].forEach(function (f) {
+        $("cl-" + f + "-" + i).addEventListener("input", function (e) { l[f] = e.target.value; calc(); });
+      });
+    });
+    $("calcAdd").textContent = calcLegs.length === 2 ? "Add draw leg" : "Remove draw leg";
+    calc();
+  }
+  function calc() {
+    var prices = calcLegs.map(function (l) { return fromAmerican(l.odds); });
+    var out = $("calcResult");
+    if (prices.some(function (p) { return !p; })) { out.innerHTML = '<p class="note">Enter American odds of +100 or more, or -100 or less, for every leg.</p>'; return; }
+    var bank = Number($("calcBankroll").value) || 0;
+    var st = stakesFor(prices, bank, Number($("calcRound").value));
+    var pct = (1 / st.sum - 1) * 100;
+    var head = pct > 0
+      ? '<div class="verdict yes">Arb: ' + pct.toFixed(2) + "% guaranteed</div>"
+      : '<div class="verdict no">No arb — books hold ' + (-pct).toFixed(2) + "%</div>";
+    var rows = calcLegs.map(function (l, i) {
+      return "<tr><td>" + esc(l.name) + '</td><td class="book">' + esc(l.book) + '</td><td class="num">' + money(st.rounded[i]) + '</td><td class="num">' + money(st.rounded[i] * prices[i]) + "</td></tr>";
+    }).join("");
+    out.innerHTML = head +
+      '<div class="legs"><table><thead><tr><th>Bet</th><th>Book</th><th class="num">Stake</th><th class="num">Pays</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+      "<div>Total " + money(st.roundedTotal) + ' → worst-case result <span class="' + (st.roundedWorstProfit >= 0 ? "profit" : "") + '" style="font-family:var(--font-mono);font-weight:600;color:' + (st.roundedWorstProfit >= 0 ? "var(--good)" : "var(--bad)") + '">' + money(st.roundedWorstProfit) + "</span></div>";
+  }
+  $("calcAdd").addEventListener("click", function () {
+    if (calcLegs.length === 2) calcLegs.push({ name: "Draw", odds: "+260", book: "BetMGM" }); else calcLegs.pop();
+    drawCalc();
+  });
+  $("calcBankroll").addEventListener("input", calc);
+  $("calcRound").addEventListener("change", calc);
+
+  drawCalc();
+  setRefresh();
+  scan();
+})();
+</script>
+</body>
+</html>

@@ -6,7 +6,9 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "scan": "node scripts/scan-arbs.js",
+    "test": "node --test"
   },
   "dependencies": {
     "cors": "^2.8.5",
