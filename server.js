@@ -15,6 +15,8 @@ const { scan: scanArbs } = require("./arb/scanner");
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Arb Desk dashboard (public/index.html) at the site root.
+app.use(express.static(require("path").join(__dirname, "public")));
 
 const PORT = process.env.PORT || 4000;
 

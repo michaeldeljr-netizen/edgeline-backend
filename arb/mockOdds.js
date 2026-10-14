@@ -1,6 +1,6 @@
 // Mock events in The Odds API v4 shape (decimal odds), used when no
-// ODDS_API_KEY is set. Contains one moneyline arb and one totals arb so the
-// endpoint has something to show; the spread market is deliberately not an arb.
+// ODDS_API_KEY is set. Contains several arbs and some non-arb lines so the
+// endpoint has something to show. Mirrors the demo games in public/index.html.
 
 function mockEvents() {
   const now = Date.now();
@@ -57,6 +57,38 @@ function mockEvents() {
           spreads("New York Giants", "Philadelphia Eagles", 7.5, 1.91, 1.91),
           totals(44.5, 1.91, 1.91),
         ]),
+      ],
+    },
+    {
+      id: "mock-nba-1",
+      sport_key: "basketball_nba",
+      sport_title: "NBA",
+      commence_time: inHours(8),
+      home_team: "New York Knicks",
+      away_team: "Boston Celtics",
+      bookmakers: [
+        book("fanduel", "FanDuel", [
+          h2h("New York Knicks", "Boston Celtics", 1.67, 2.25),
+          spreads("New York Knicks", "Boston Celtics", -4.5, 2.0, 1.83),
+          totals(219.5, 1.91, 1.91),
+        ]),
+        book("hardrockbet", "Hard Rock Bet", [
+          h2h("New York Knicks", "Boston Celtics", 1.62, 2.35),
+          spreads("New York Knicks", "Boston Celtics", -4.5, 1.77, 2.06),
+          totals(219.5, 1.93, 1.89),
+        ]),
+      ],
+    },
+    {
+      id: "mock-ncaaf-1",
+      sport_key: "americanfootball_ncaaf",
+      sport_title: "NCAAF",
+      commence_time: inHours(50),
+      home_team: "Rutgers Scarlet Knights",
+      away_team: "Penn State Nittany Lions",
+      bookmakers: [
+        book("betparx", "betPARX", [h2h("Rutgers Scarlet Knights", "Penn State Nittany Lions", 4.2, 1.25)]),
+        book("williamhill_us", "Caesars", [h2h("Rutgers Scarlet Knights", "Penn State Nittany Lions", 3.7, 1.33)]),
       ],
     },
     {

@@ -84,7 +84,14 @@ async function scan(options = {}) {
   };
 
   if (!apiKey) {
-    const events = mockEvents().filter((e) => books.some((b) => e.bookmakers.some((bm) => bm.key === b)));
+    const events = mockEvents()
+      .filter((e) => wantedSports.includes(e.sport_key))
+      .map((e) => ({
+        ...e,
+        bookmakers: e.bookmakers
+          .filter((bm) => books.includes(bm.key))
+          .map((bm) => ({ ...bm, markets: bm.markets.filter((m) => markets.includes(m.key)) })),
+      }));
     return {
       source: "mock",
       scannedAt: new Date().toISOString(),

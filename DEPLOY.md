@@ -67,10 +67,12 @@ betPARX — for moneyline, spread and total arbs, and sizes the stakes.
 1. Get a key at https://the-odds-api.com and set `ODDS_API_KEY` in `.env`
    (and in Render's dashboard — render.yaml declares it but doesn't store it).
    Without a key, the scanner returns mock odds.
-2. Terminal: `npm run scan -- --bankroll 500 --min 0.5`
+2. Dashboard: open your Render URL (e.g. https://edgeline-picks-api.onrender.com/)
+   — the Arb Desk scanner and a manual arb calculator are served at the root.
+3. Terminal: `npm run scan -- --bankroll 500 --min 0.5`
    (add `--watch 120` to rescan every 2 minutes; `--sports`, `--markets`,
    `--books` take comma lists).
-3. API: `GET /api/arbs?bankroll=500&minProfit=0.5&sports=basketball_nba,icehockey_nhl`
+4. API: `GET /api/arbs?bankroll=500&minProfit=0.5&sports=basketball_nba,icehockey_nhl`
 
 Quota: each sport scanned costs one credit per market (3 by default), so a
 full 5-sport scan is 15 credits. Results are cached for 120s. The free tier
